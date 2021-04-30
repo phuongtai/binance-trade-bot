@@ -73,9 +73,9 @@ class BinanceAPIManager:
         """
         Get ticker price of a specific coin
         """
-        for ticker in self.binance_client.get_symbol_ticker():
-            if ticker["symbol"] == ticker_symbol:
-                return float(ticker["price"])
+        symbol_dict = self.binance_client.get_symbol_ticker(symbol=ticker_symbol)
+        if symbol_dict:
+            return float(symbol_dict["price"])
         return None
 
     def get_currency_balance(self, currency_symbol: str):
