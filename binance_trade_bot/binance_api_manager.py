@@ -62,7 +62,9 @@ class BinanceAPIManager:
         if bnb_balance >= fee_amount_bnb:
             return base_fee * 0.75
         return base_fee
-
+    
+    
+    @cached(cache=TTLCache(maxsize=2000, ttl=60))
     def get_all_market_tickers(self) -> AllTickers:
         """
         Get ticker price of all coins
@@ -78,6 +80,7 @@ class BinanceAPIManager:
             return float(symbol_dict["price"])
         return None
 
+    @cached(cache=TTLCache(maxsize=2000, ttl=60))
     def get_currency_balance(self, currency_symbol: str):
         """
         Get balance of a specific coin

@@ -66,3 +66,4 @@ class Strategy(AutoTrader):
                 all_tickers = self.manager.get_all_market_tickers()
                 self.manager.buy_alt(current_coin, self.config.BRIDGE, all_tickers)
                 self.logger.info("Ready to start trading")
+

@@ -5,3 +5,4 @@ from .current_coin import CurrentCoin
 from .pair import Pair
 from .scout_history import ScoutHistory
 from .trade import Trade, TradeState
+from .tickers_price import TickersPrice

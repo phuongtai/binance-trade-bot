@@ -9,6 +9,7 @@ from .scheduler import SafeScheduler
 from .strategies import get_strategy
 
 
+
 def main():
     logger = Logger()
     logger.info("Starting")
