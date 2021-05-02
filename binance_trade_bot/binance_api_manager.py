@@ -20,9 +20,12 @@ class AllTickers:  # pylint: disable=too-few-public-methods
         ticker = next((t for t in self.all_tickers if t["symbol"] == ticker_symbol), None)
         return float(ticker["price"]) if ticker else None
 
+class BinanceAPIOption:
+    def __init__(self) -> None:
+        pass
 
 class BinanceAPIManager:
-    def __init__(self, config: Config, db: Database, logger: Logger):
+    def __init__(self, config: Config, db: Database, logger: Logger, **kwargs):
         self.binance_client = Client(
             config.BINANCE_API_KEY,
             config.BINANCE_API_SECRET_KEY,
@@ -198,8 +201,8 @@ class BinanceAPIManager:
 
         return False
 
-    def buy_alt(self, origin_coin: Coin, target_coin: Coin, all_tickers: AllTickers):
-        return self.retry(self._buy_alt, origin_coin, target_coin, all_tickers)
+    def buy_alt(self, origin_coin: Coin, target_coin: Coin, all_tickers: AllTickers, **kwargs):
+        return self.retry(self._buy_alt, origin_coin, target_coin, all_tickers, **kwargs)
 
     def _buy_quantity(
         self, origin_symbol: str, target_symbol: str, target_balance: float = None, from_coin_price: float = None
@@ -210,7 +213,11 @@ class BinanceAPIManager:
         origin_tick = self.get_alt_tick(origin_symbol, target_symbol)
         return math.floor(target_balance * 10 ** origin_tick / from_coin_price) / float(10 ** origin_tick)
 
-    def _buy_alt(self, origin_coin: Coin, target_coin: Coin, all_tickers):
+    def _get_buy_stoploss_price(self, price, stoploss_percent=None):
+        stoploss = stoploss_percent or self.config.BUY_STOPLOSS or 0
+        return abs(price - (float(stoploss)/100 * price))
+
+    def _buy_alt(self, origin_coin: Coin, target_coin: Coin, all_tickers, **kwargs):
         """
         Buy altcoin
         """
@@ -231,6 +238,7 @@ class BinanceAPIManager:
             try:
                 order = self.binance_client.order_limit_buy(
                     symbol=origin_symbol + target_symbol,
+                    stopPrice=self._get_buy_stoploss_price(from_coin_price),
                     quantity=order_quantity,
                     price=from_coin_price,
                 )
