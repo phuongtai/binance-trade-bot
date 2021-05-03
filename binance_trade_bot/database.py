@@ -4,11 +4,13 @@ import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import List, Optional, Union
+import pymongo
 
 from socketio import Client
 from socketio.exceptions import ConnectionError as SocketIOConnectionError
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
+
 
 from .config import Config
 from .logger import Logger
@@ -19,6 +21,7 @@ class Database:
     def __init__(self, logger: Logger, config: Config, uri="sqlite:///data/crypto_trading.db"):
         self.logger = logger
         self.config = config
+        self.db = pymongo.MongoClient(url)
         self.engine = create_engine(uri)
         self.SessionMaker = sessionmaker(bind=self.engine)
         self.socketio_client = Client()

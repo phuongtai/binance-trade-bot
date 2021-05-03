@@ -110,8 +110,17 @@ def scouting_history():
 
 
 @app.route("/api/current_coin")
-def current_coin():
+def get_current_coin():
     coin = db.get_current_coin()
+    return coin.info() if coin else None
+
+@app.route("/api/current_coin/<coin>/", methods=["POST"])
+def set_current_coin(coin):
+    try:
+        db.set_current_coin(coin)
+        coin = db.get_current_coin()
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)})
     return coin.info() if coin else None
 
 

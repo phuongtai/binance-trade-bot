@@ -238,8 +238,6 @@ class BinanceAPIManager:
             try:
                 order = self.binance_client.order_limit_buy(
                     symbol=origin_symbol + target_symbol,
-                    type=Client.ORDER_TYPE_STOP_LOSS_LIMIT,
-                    stopPrice=self._get_buy_stoploss_price(from_coin_price),
                     quantity=order_quantity,
                     price=from_coin_price,
                 )
@@ -289,9 +287,14 @@ class BinanceAPIManager:
         self.logger.info(f"Balance is {origin_balance}")
         order = None
         while order is None:
+            
             # Should sell at calculated price to avoid lost coin
             order = self.binance_client.order_limit_sell(
-                symbol=origin_symbol + target_symbol, quantity=(order_quantity), price=from_coin_price
+                type=Client.ORDER_TYPE_STOP_LOSS_LIMIT,
+                stopPrice=self._get_buy_stoploss_price(from_coin_price),
+                symbol=origin_symbol + target_symbol, 
+                quantity=(order_quantity),
+                price=from_coin_price
             )
 
         self.logger.info("order")
