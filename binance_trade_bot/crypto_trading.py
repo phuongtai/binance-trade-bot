@@ -25,10 +25,9 @@ def main():
     logger.info(f"Chosen strategy: {config.STRATEGY}")
 
     logger.info("Creating database schema if it doesn't already exist")
-    db.create_database()
+    # db.create_database()
 
-    db.set_coins(config.SUPPORTED_COIN_LIST)
-    db.migrate_old_state()
+    db.set_coins(symbols=config.SUPPORTED_COIN_LIST)
 
     trader.initialize()
 

@@ -5,6 +5,8 @@ services:
     build: .
     container_name: binance_trader
     working_dir: /app
+    env_file: 
+      - .env
     volumes:
       - ./user.cfg:/app/user.cfg
       - ./data:/app/data
@@ -20,6 +22,9 @@ services:
     build: .
     container_name: binance_trader_api
     working_dir: /app
+    env_file: 
+      - .env
+
     volumes:
       - ./user.cfg:/app/user.cfg
       - ./data:/app/data
@@ -27,17 +32,15 @@ services:
       - ./:/app
     ports:
       - 5123:5123
-    command: gunicorn binance_trade_bot.api_server:app -k eventlet -w 1 --threads 1 -b 0.0.0.0:5123
+    command: gunicorn --reload --reload-engine auto binance_trade_bot.api_server:app -k eventlet -w 1 --threads 1 -b 0.0.0.0:5123
     depends_on:
       - crypto-trading
       - db
   db:
     image: mongo:latest
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=superman
-      - MONGO_INITDB_ROOT_PASSWORD=YTg9p6Cc2VyY7WEA894yJ2bcj8
-      - MONGO_DATA_DIR=/data/db
-      - MONGO_LOG_DIR=/dev/null
+    env_file: 
+      - .env
+
     ports:
       - "27018:27017"
 

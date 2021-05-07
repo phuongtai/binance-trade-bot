@@ -1,41 +1,21 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
-from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import relationship
-
+from mongoengine import Document, fields
 from .base import Base
 from .pair import Pair
 
 
-class ScoutHistory(Base):
-    __tablename__ = "scout_history"
+class ScoutHistory(Document):
 
-    id = Column(Integer, primary_key=True)
 
-    pair_id = Column(String, ForeignKey("pairs.id"))
-    pair = relationship("Pair")
+    pair = fields.ReferenceField(Pair)
+    target_ratio = fields.FloatField()
+    current_coin_price = fields.FloatField()
+    other_coin_price = fields.FloatField()
 
-    target_ratio = Column(Float)
-    current_coin_price = Column(Float)
-    other_coin_price = Column(Float)
+    datetime = fields.DateTimeField(default=datetime.utcnow)
 
-    datetime = Column(DateTime)
 
-    def __init__(
-        self,
-        pair: Pair,
-        target_ratio: float,
-        current_coin_price: float,
-        other_coin_price: float,
-    ):
-        self.pair = pair
-        self.target_ratio = target_ratio
-        self.current_coin_price = current_coin_price
-        self.other_coin_price = other_coin_price
-        self.datetime = datetime.utcnow()
-
-    @hybrid_property
     def current_ratio(self):
         return self.current_coin_price / self.other_coin_price
 

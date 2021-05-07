@@ -10,7 +10,7 @@ from socketio import Client
 from socketio.exceptions import ConnectionError as SocketIOConnectionError
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
-
+from mongoengine import connect, register_connection, disconnect
 
 from .config import Config
 from .logger import Logger
@@ -21,10 +21,15 @@ class Database:
     def __init__(self, logger: Logger, config: Config, uri="sqlite:///data/crypto_trading.db"):
         self.logger = logger
         self.config = config
-        self.db = pymongo.MongoClient(url)
-        self.engine = create_engine(uri)
-        self.SessionMaker = sessionmaker(bind=self.engine)
+        # self.client_db = connect((host=))
+        # self.engine = create_engine(uri)
+        # self.SessionMaker = sessionmaker(bind=self.engine)
         self.socketio_client = Client()
+        print(self.config.MONGO_DB_URI)
+        connect('crypto_trading', host=self.config.MONGO_DB_URI)
+
+    def destroy_session(self):
+        disconnect()
 
     def socketio_connect(self):
         if self.socketio_client.connected and self.socketio_client.namespaces:
@@ -43,110 +48,84 @@ class Database:
         """
         Creates a context with an open SQLAlchemy session.
         """
-        session: Session = scoped_session(self.SessionMaker)
-        yield session
-        session.commit()
-        session.close()
+        
 
     def set_coins(self, symbols: List[str]):
-        session: Session
 
-        # Add coins to the database and set them as enabled or not
-        with self.db_session() as session:
-            # For all the coins in the database, if the symbol no longer appears
-            # in the config file, set the coin as disabled
-            coins: List[Coin] = session.query(Coin).all()
-            for coin in coins:
-                if coin.symbol not in symbols:
-                    coin.enabled = False
+        # For all the coins in the database, if the symbol no longer appears
+        # in the config file, set the coin as disabled
+        coins: List[Coin] = Coin.objects
+        for coin in coins:
+            if coin.symbol not in symbols:
+                coin.enabled = False
 
-            # For all the symbols in the config file, add them to the database
-            # if they don't exist
-            for symbol in symbols:
-                coin = next((coin for coin in coins if coin.symbol == symbol), None)
-                if coin is None:
-                    session.add(Coin(symbol))
-                else:
-                    coin.enabled = True
+        # For all the symbols in the config file, add them to the database
+        # if they don't exist
+        for symbol in symbols:
+            coin = next((coin for coin in coins if coin.symbol == symbol), None)
+            if coin is None:
+                coin_db = Coin(symbol=symbol)
+                coin_db.save()
+            else:
+                coin.enabled = True
 
         # For all the combinations of coins in the database, add a pair to the database
-        with self.db_session() as session:
-            coins: List[Coin] = session.query(Coin).filter(Coin.enabled).all()
-            for from_coin in coins:
-                for to_coin in coins:
-                    if from_coin != to_coin:
-                        pair = session.query(Pair).filter(Pair.from_coin == from_coin, Pair.to_coin == to_coin).first()
-                        if pair is None:
-                            session.add(Pair(from_coin, to_coin))
+        coins: Coin.objects
+        for from_coin in coins:
+            for to_coin in coins:
+                if from_coin != to_coin:
+                    pair = Pair.objects(from_coin =from_coin, to_coin=to_coin).first()
+                    if pair is None:
+                        pair = Pair(from_coin=from_coin, to_coin=from_coin)
+                        pair.save()
 
     def get_coins(self, only_enabled=True) -> List[Coin]:
-        session: Session
-        with self.db_session() as session:
-            if only_enabled:
-                coins = session.query(Coin).filter(Coin.enabled).all()
-            else:
-                coins = session.query(Coin).all()
-            session.expunge_all()
-            return coins
+        if only_enabled:
+            coins = Coin.objects(enabled=True).all()
+        else:
+            coins = Coin.objects
+        return coins
 
     def get_coin(self, coin: Union[Coin, str]) -> Coin:
         if isinstance(coin, Coin):
             return coin
-        session: Session
-        with self.db_session() as session:
-            coin = session.query(Coin).get(coin)
-            session.expunge(coin)
-            return coin
+        coin = Coin.objects(symbol=coin).first()
+        return coin
 
     def set_current_coin(self, coin: Union[Coin, str]):
         coin = self.get_coin(coin)
-        session: Session
-        with self.db_session() as session:
-            if isinstance(coin, Coin):
-                coin = session.merge(coin)
-            cc = CurrentCoin(coin)
-            session.add(cc)
-            self.send_update(cc)
+        current_coin = CurrentCoin(coin=coin)
+        current_coin.save()
 
     def get_current_coin(self) -> Optional[Coin]:
-        session: Session
-        with self.db_session() as session:
-            current_coin = session.query(CurrentCoin).order_by(CurrentCoin.datetime.desc()).first()
-            if current_coin is None:
-                return None
-            coin = current_coin.coin
-            session.expunge(coin)
-            return coin
+        current_coin = CurrentCoin.objects.order_by('-datetime').first()
+        if current_coin is None:
+            return None
+        coin = current_coin.coin
+        return coin
 
     def get_pair(self, from_coin: Union[Coin, str], to_coin: Union[Coin, str]):
         from_coin = self.get_coin(from_coin)
         to_coin = self.get_coin(to_coin)
-        session: Session
-        with self.db_session() as session:
-            pair: Pair = session.query(Pair).filter(Pair.from_coin == from_coin, Pair.to_coin == to_coin).first()
-            session.expunge(pair)
-            return pair
+        pair: Pair.objects(from_coin=from_coin, to_coin = to_coin).first()
+        return pair
 
     def get_pairs_from(self, from_coin: Union[Coin, str], only_enabled=True) -> List[Pair]:
         from_coin = self.get_coin(from_coin)
-        session: Session
-        with self.db_session() as session:
-            pairs = session.query(Pair).filter(Pair.from_coin == from_coin)
-            if only_enabled:
-                pairs = pairs.filter(Pair.enabled.is_(True))
-            pairs = pairs.all()
-            session.expunge_all()
-            return pairs
+
+        pairs = Pair.objects(from_coin=from_coin)
+        if only_enabled:
+            pairs = pairs.filter(enabled=True)
+        pairs = pairs.all()
+        return pairs
+
 
     def get_pairs(self, only_enabled=True) -> List[Pair]:
-        session: Session
-        with self.db_session() as session:
-            pairs = session.query(Pair)
-            if only_enabled:
-                pairs = pairs.filter(Pair.enabled.is_(True))
-            pairs = pairs.all()
-            session.expunge_all()
-            return pairs
+        pairs = Pair.objects
+        if only_enabled:
+            pairs = pairs.filter(enabled=True)
+        pairs = pairs.all()
+        return pairs
 
     def log_scout(
         self,
@@ -155,64 +134,58 @@ class Database:
         current_coin_price: float,
         other_coin_price: float,
     ):
-        session: Session
-        with self.db_session() as session:
-            pair = session.merge(pair)
-            sh = ScoutHistory(pair, target_ratio, current_coin_price, other_coin_price)
-            session.add(sh)
-            self.send_update(sh)
+        sh = ScoutHistory(pair=pair, target_ratio=target_ratio, current_coin_price=current_coin_price, other_coin_price=other_coin_price)
+        sh.save()
+        self.send_update(sh)
 
     def prune_scout_history(self):
         time_diff = datetime.now() - timedelta(hours=self.config.SCOUT_HISTORY_PRUNE_TIME)
-        session: Session
-        with self.db_session() as session:
-            session.query(ScoutHistory).filter(ScoutHistory.datetime < time_diff).delete()
+        ScoutHistory.objects(datetime__lt = time_diff).delete()
 
     def prune_value_history(self):
-        session: Session
-        with self.db_session() as session:
-            # Sets the first entry for each coin for each hour as 'hourly'
-            hourly_entries: List[CoinValue] = (
-                session.query(CoinValue).group_by(CoinValue.coin_id, func.strftime("%H", CoinValue.datetime)).all()
-            )
-            for entry in hourly_entries:
-                entry.interval = Interval.HOURLY
+        session = Session
+        # Sets the first entry for each coin for each hour as 'hourly'
+        hourly_entries: (
+            CoinValue.group_by(CoinValue.coin_id, func.strftime("%H", CoinValue.datetime)).all()
+        )
+        for entry in hourly_entries:
+            entry.interval = Interval.HOURLY
 
-            # Sets the first entry for each coin for each day as 'daily'
-            daily_entries: List[CoinValue] = (
-                session.query(CoinValue).group_by(CoinValue.coin_id, func.date(CoinValue.datetime)).all()
-            )
-            for entry in daily_entries:
-                entry.interval = Interval.DAILY
+        # Sets the first entry for each coin for each day as 'daily'
+        daily_entries: List[CoinValue] = (
+            session.query(CoinValue).group_by(CoinValue.coin_id, func.date(CoinValue.datetime)).all()
+        )
+        for entry in daily_entries:
+            entry.interval = Interval.DAILY
 
-            # Sets the first entry for each coin for each month as 'weekly'
-            # (Sunday is the start of the week)
-            weekly_entries: List[CoinValue] = (
-                session.query(CoinValue).group_by(CoinValue.coin_id, func.strftime("%Y-%W", CoinValue.datetime)).all()
-            )
-            for entry in weekly_entries:
-                entry.interval = Interval.WEEKLY
+        # Sets the first entry for each coin for each month as 'weekly'
+        # (Sunday is the start of the week)
+        weekly_entries: List[CoinValue] = (
+            session.query(CoinValue).group_by(CoinValue.coin_id, func.strftime("%Y-%W", CoinValue.datetime)).all()
+        )
+        for entry in weekly_entries:
+            entry.interval = Interval.WEEKLY
 
-            # The last 24 hours worth of minutely entries will be kept, so
-            # count(coins) * 1440 entries
-            time_diff = datetime.now() - timedelta(hours=24)
-            session.query(CoinValue).filter(
-                CoinValue.interval == Interval.MINUTELY, CoinValue.datetime < time_diff
-            ).delete()
+        # The last 24 hours worth of minutely entries will be kept, so
+        # count(coins) * 1440 entries
+        time_diff = datetime.now() - timedelta(hours=24)
+        session.query(CoinValue).filter(
+            CoinValue.interval == Interval.MINUTELY, CoinValue.datetime < time_diff
+        ).delete()
 
-            # The last 28 days worth of hourly entries will be kept, so count(coins) * 672 entries
-            time_diff = datetime.now() - timedelta(days=28)
-            session.query(CoinValue).filter(
-                CoinValue.interval == Interval.HOURLY, CoinValue.datetime < time_diff
-            ).delete()
+        # The last 28 days worth of hourly entries will be kept, so count(coins) * 672 entries
+        time_diff = datetime.now() - timedelta(days=28)
+        session.query(CoinValue).filter(
+            CoinValue.interval == Interval.HOURLY, CoinValue.datetime < time_diff
+        ).delete()
 
-            # The last years worth of daily entries will be kept, so count(coins) * 365 entries
-            time_diff = datetime.now() - timedelta(days=365)
-            session.query(CoinValue).filter(
-                CoinValue.interval == Interval.DAILY, CoinValue.datetime < time_diff
-            ).delete()
+        # The last years worth of daily entries will be kept, so count(coins) * 365 entries
+        time_diff = datetime.now() - timedelta(days=365)
+        session.query(CoinValue).filter(
+            CoinValue.interval == Interval.DAILY, CoinValue.datetime < time_diff
+        ).delete()
 
-            # All weekly entries will be kept forever
+        # All weekly entries will be kept forever
 
     def create_database(self):
         Base.metadata.create_all(self.engine)
@@ -226,7 +199,7 @@ class Database:
 
         self.socketio_client.emit(
             "update",
-            {"table": model.__tablename__, "data": model.info()},
+            {"table": model.__class__, "data": model.info()},
             namespace="/backend",
         )
 
@@ -295,4 +268,4 @@ class TradeLog:
 
 if __name__ == "__main__":
     database = Database(Logger(), Config())
-    database.create_database()
+    # database.create_database()

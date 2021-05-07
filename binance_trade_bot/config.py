@@ -30,7 +30,7 @@ class Config:  # pylint: disable=too-few-public-methods,too-many-instance-attrib
             config.read(CFG_FL_NAME)
 
         self.BRIDGE_SYMBOL = os.environ.get("BRIDGE_SYMBOL") or config.get(USER_CFG_SECTION, "bridge")
-        self.BRIDGE = Coin(self.BRIDGE_SYMBOL, False)
+        self.BRIDGE = Coin(symbol= self.BRIDGE_SYMBOL, enabled=False)
 
         # Prune settings
         self.SCOUT_HISTORY_PRUNE_TIME = float(
@@ -72,3 +72,4 @@ class Config:  # pylint: disable=too-few-public-methods,too-many-instance-attrib
         self.BUY_TIMEOUT = os.environ.get("BUY_TIMEOUT") or config.get(USER_CFG_SECTION, "buy_timeout")
         self.BUY_STOPLOSS = os.environ.get("BUY_STOPLOSS") or config.get(USER_CFG_SECTION, "buy_stoploss")
         self.SELL_TAKEPROFIT = os.environ.get("SELL_TAKEPROFIT") or config.get(USER_CFG_SECTION, "sell_takeprofit")
+        self.MONGO_DB_URI = os.environ.get('MONGO_DB_URI')

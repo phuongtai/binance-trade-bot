@@ -1,9 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, Float, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
-
+from mongoengine import Document, fields
 from .base import Base
 from .coin import Coin
 
@@ -14,34 +12,28 @@ class TradeState(enum.Enum):
     COMPLETE = "COMPLETE"
 
 
-class Trade(Base):  # pylint: disable=too-few-public-methods
-    __tablename__ = "trade_history"
+class Trade(Document):
+    alt_coin = fields.ReferenceField(Coin)
 
-    id = Column(Integer, primary_key=True)
+    crypto_coin_id = fields.ReferenceField(Coin)
 
-    alt_coin_id = Column(String, ForeignKey("coins.symbol"))
-    alt_coin = relationship("Coin", foreign_keys=[alt_coin_id], lazy="joined")
+    selling = fields.BooleanField()
 
-    crypto_coin_id = Column(String, ForeignKey("coins.symbol"))
-    crypto_coin = relationship("Coin", foreign_keys=[crypto_coin_id], lazy="joined")
+    state = fields.StringField(choices=TradeState, default=TradeState.STARTING)
 
-    selling = Column(Boolean)
+    alt_starting_balance = fields.FloatField()
+    alt_trade_amount = fields.FloatField()
+    crypto_starting_balance = fields.FloatField()
+    crypto_trade_amount = fields.FloatField()
 
-    state = Column(Enum(TradeState))
+    datetime = fields.DateTimeField(default=datetime.utcnow)
 
-    alt_starting_balance = Column(Float)
-    alt_trade_amount = Column(Float)
-    crypto_starting_balance = Column(Float)
-    crypto_trade_amount = Column(Float)
-
-    datetime = Column(DateTime)
-
-    def __init__(self, alt_coin: Coin, crypto_coin: Coin, selling: bool):
-        self.alt_coin = alt_coin
-        self.crypto_coin = crypto_coin
-        self.state = TradeState.STARTING
-        self.selling = selling
-        self.datetime = datetime.utcnow()
+    # def __init__(self, alt_coin: str, crypto_coin: str, selling: bool):
+    #     self.alt_coin = alt_coin
+    #     self.crypto_coin = crypto_coin
+    #     self.state = TradeState.STARTING
+    #     self.selling = selling
+    #     self.datetime = datetime.utcnow()
 
     def info(self):
         return {

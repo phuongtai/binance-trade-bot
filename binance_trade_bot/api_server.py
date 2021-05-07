@@ -34,32 +34,30 @@ def filter_period(query, model):  # pylint: disable=inconsistent-return-statemen
     num = float(re.search(r"(\d*)[shdwm]", "1d").group(1))
 
     if "s" in period:
-        return query.filter(model.datetime >= datetime.now() - timedelta(seconds=num))
+        return query.filter(datetime__gte = datetime.now() - timedelta(seconds=num))
     if "h" in period:
-        return query.filter(model.datetime >= datetime.now() - timedelta(hours=num))
+        return query.filter(datetime__gte = datetime.now() - timedelta(hours=num))
     if "d" in period:
-        return query.filter(model.datetime >= datetime.now() - timedelta(days=num))
+        return query.filter(datetime__gte = datetime.now() - timedelta(days=num))
     if "w" in period:
-        return query.filter(model.datetime >= datetime.now() - timedelta(weeks=num))
+        return query.filter(datetime__gte = datetime.now() - timedelta(weeks=num))
     if "m" in period:
-        return query.filter(model.datetime >= datetime.now() - timedelta(days=28 * num))
+        return query.filter(datetime__gte = datetime.now() - timedelta(days=28 * num))
 
 
 @app.route("/api/value_history/<coin>")
 @app.route("/api/value_history")
 def value_history(coin: str = None):
-    session: Session
-    with db.db_session() as session:
-        query = session.query(CoinValue).order_by(CoinValue.coin_id.asc(), CoinValue.datetime.asc())
+    query = CoinValue.objects().order_by('coin_id', 'datetime')
 
-        query = filter_period(query, CoinValue)
+    query = filter_period(query, CoinValue)
 
-        if coin:
-            values: List[CoinValue] = query.filter(CoinValue.coin_id == coin).all()
-            return jsonify([entry.info() for entry in values])
+    if coin:
+        values: List[CoinValue] = query.filter(coin_id=coin)
+        return jsonify([entry.info() for entry in values])
 
-        coin_values = groupby(query.all(), key=lambda cv: cv.coin)
-        return jsonify({coin.symbol: [entry.info() for entry in history] for coin, history in coin_values})
+    coin_values = groupby(query, key=lambda cv: cv.coin)
+    return jsonify({coin.symbol: [entry.info() for entry in history] for coin, history in coin_values})
 
 
 @app.route("/api/total_value_history")
@@ -138,19 +136,15 @@ def current_coin_history():
 
 @app.route("/api/coins")
 def coins():
-    session: Session
-    with db.db_session() as session:
-        _current_coin = session.merge(db.get_current_coin())
-        _coins: List[Coin] = session.query(Coin).all()
-        return jsonify([{**coin.info(), "is_current": coin == _current_coin} for coin in _coins])
+    _current_coin = db.get_current_coin()
+    #  = Coin.objects.all()
+    return jsonify([{**coin.info(), "is_current": coin == _current_coin} for coin in Coin.objects])
 
 
 @app.route("/api/pairs")
 def pairs():
-    session: Session
-    with db.db_session() as session:
-        all_pairs: List[Pair] = session.query(Pair).all()
-        return jsonify([pair.info() for pair in all_pairs])
+    all_pairs: List[Pair] = Pair.objects
+    return jsonify([pair.info() for pair in all_pairs])
 
 
 @socketio.on("update", namespace="/backend")

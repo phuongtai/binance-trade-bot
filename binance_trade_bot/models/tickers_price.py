@@ -1,15 +1,12 @@
-from sqlalchemy import Column, String
-from sqlalchemy.sql.sqltypes import DateTime, Float
 from datetime import datetime as _datetime
-
+from mongoengine import Document, fields
 from .base import Base
 
 
-class TickersPrice(Base):
-    __tablename__ = "tickers_price"
-    symbol = Column(String, primary_key=True)
-    price = Column(Float)
-    datetime = Column(DateTime)
+class TickersPrice(Document):
+    symbol = fields.StringField()
+    price = fields.FloatField()
+    datetime = fields.DateTimeField()
 
     def __init__(self, symbol, price=0.0):
         self.symbol = symbol

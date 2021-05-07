@@ -75,28 +75,26 @@ class AutoTrader:
         """
         all_tickers = self.manager.get_all_market_tickers()
 
-        session: Session
-        with self.db.db_session() as session:
-            for pair in session.query(Pair).filter(Pair.ratio.is_(None)).all():
-                if not pair.from_coin.enabled or not pair.to_coin.enabled:
-                    continue
-                self.logger.info(f"Initializing {pair.from_coin} vs {pair.to_coin}")
+        for pair in Pair.objects(ratio=None):
+            if not pair.from_coin.enabled or not pair.to_coin.enabled:
+                continue
+            self.logger.info(f"Initializing {pair.from_coin} vs {pair.to_coin}")
 
-                from_coin_price = all_tickers.get_price(pair.from_coin + self.config.BRIDGE)
-                if from_coin_price is None:
-                    self.logger.info(
-                        "Skipping initializing {}, symbol not found".format(pair.from_coin + self.config.BRIDGE)
-                    )
-                    continue
+            from_coin_price = all_tickers.get_price(pair.from_coin + self.config.BRIDGE)
+            if from_coin_price is None:
+                self.logger.info(
+                    "Skipping initializing {}, symbol not found".format(pair.from_coin + self.config.BRIDGE)
+                )
+                continue
 
-                to_coin_price = all_tickers.get_price(pair.to_coin + self.config.BRIDGE)
-                if to_coin_price is None:
-                    self.logger.info(
-                        "Skipping initializing {}, symbol not found".format(pair.to_coin + self.config.BRIDGE)
-                    )
-                    continue
+            to_coin_price = all_tickers.get_price(pair.to_coin + self.config.BRIDGE)
+            if to_coin_price is None:
+                self.logger.info(
+                    "Skipping initializing {}, symbol not found".format(pair.to_coin + self.config.BRIDGE)
+                )
+                continue
 
-                pair.ratio = from_coin_price / to_coin_price
+            pair.ratio = from_coin_price / to_coin_price
 
     def scout(self):
         """
@@ -178,15 +176,13 @@ class AutoTrader:
 
         now = datetime.now()
 
-        session: Session
-        with self.db.db_session() as session:
-            coins: List[Coin] = session.query(Coin).all()
-            for coin in coins:
-                balance = self.manager.get_currency_balance(coin.symbol)
-                if balance == 0:
-                    continue
-                usd_value = all_ticker_values.get_price(coin + "USDT")
-                btc_value = all_ticker_values.get_price(coin + "BTC")
-                cv = CoinValue(coin, balance, usd_value, btc_value, datetime=now)
-                session.add(cv)
-                self.db.send_update(cv)
+        
+        for coin in Coin.objects:
+            balance = self.manager.get_currency_balance(coin.symbol)
+            if balance == 0:
+                continue
+            usd_value = all_ticker_values.get_price(coin + "USDT")
+            btc_value = all_ticker_values.get_price(coin + "BTC")
+            cv = CoinValue(coin, balance, usd_value, btc_value)
+            cv.save()
+            self.db.send_update(cv)

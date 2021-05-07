@@ -1,16 +1,18 @@
-from sqlalchemy import Boolean, Column, String
+from mongoengine import Document, fields
 
 from .base import Base
 
 
-class Coin(Base):
-    __tablename__ = "coins"
-    symbol = Column(String, primary_key=True)
-    enabled = Column(Boolean)
+class Coin(Document):
+    # __tablename__ = "coins"
+    symbol = fields.StringField()
+    enabled = fields.BooleanField(default=True)
 
-    def __init__(self, symbol, enabled=True):
-        self.symbol = symbol
-        self.enabled = enabled
+    # def __init__(self, symbol, enabled=True):
+    #     self.symbol = symbol
+    #     self.enabled = enabled
+    def __str__(self):
+        return self.symbol
 
     def __add__(self, other):
         if isinstance(other, str):
