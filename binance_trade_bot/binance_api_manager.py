@@ -25,7 +25,8 @@ class BinanceAPIOption:
         pass
 
 class BinanceAPIManager:
-    def __init__(self, config: Config, db: Database, logger: Logger, **kwargs):
+    def __init__(self, config: Config, db: Database, logger: Logger):
+        # initializing the client class calls `ping` API endpoint, verifying the connection
         self.binance_client = Client(
             config.BINANCE_API_KEY,
             config.BINANCE_API_SECRET_KEY,
@@ -65,9 +66,13 @@ class BinanceAPIManager:
         if bnb_balance >= fee_amount_bnb:
             return base_fee * 0.75
         return base_fee
-    
-    
-    @cached(cache=TTLCache(maxsize=2000, ttl=60))
+
+    def get_account(self):
+        """
+        Get account information
+        """
+        return self.binance_client.get_account()
+
     def get_all_market_tickers(self) -> AllTickers:
         """
         Get ticker price of all coins
@@ -230,7 +235,7 @@ class BinanceAPIManager:
         from_coin_price = all_tickers.get_price(origin_symbol + target_symbol)
 
         order_quantity = self._buy_quantity(origin_symbol, target_symbol, target_balance, from_coin_price)
-        self.logger.info(f"BUY QTY {order_quantity}")
+        self.logger.info(f"BUY QTY {order_quantity} of <{origin_symbol}>")
 
         # Try to buy until successful
         order = None
