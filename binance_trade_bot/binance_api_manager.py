@@ -74,14 +74,13 @@ class BinanceAPIManager:
         """
         return self.binance_client.get_account()
     
-    @cached(cache=TTLCache(maxsize=1, ttl=30))
+    @cached(cache=TTLCache(maxsize=2000, ttl=30))
     def get_all_market_tickers(self) -> AllTickers:
         """
         Get ticker price of all coins
         """
         return AllTickers(self.binance_client.get_all_tickers())
 
-    @cached(cache=TTLCache(maxsize=1, ttl=30))
     def get_market_ticker_price(self, ticker_symbol: str):
         """
         Get ticker price of a specific coin
